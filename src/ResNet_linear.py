@@ -8,13 +8,13 @@ import os
 
 # ======== Config ========
 INPUT_DIM = 118
-FULL_OUTPUT_DIM = 535
+FULL_OUTPUT_DIM = 54
 HIDDEN_DIM = 64
 LEARNING_RATE = 0.001
 BATCH_SIZE = 64
-EPOCHS = 400
-SAVE_NAME = 'model/linear_resnet_model_400epoch.pt'
-PREPROCESS_FILE = 'model_data/linear_resnet_preprocess.npz'
+EPOCHS = 50
+SAVE_NAME = 'model/linear_resnet_model_50epoch54output.pt'
+PREPROCESS_FILE = 'model_data/linear_resnet_preprocess_54.npz'
 
 # ======== Model ========
 class ResidualBlock(nn.Module):
@@ -58,7 +58,7 @@ class StructuredResNet(nn.Module):
 # ======== DataLoader with zero-column removal ========
 def load_data_with_zero_mask(Pd_path, data_path, test_ratio=0.2):
     X = torch.load(Pd_path).numpy()
-    y = torch.load(data_path).numpy()
+    y = torch.load(data_path).numpy()[:,:54]
     
     zero_columns = np.where(np.all(y == 0, axis=0))[0]
     non_zero_columns = np.setdiff1d(np.arange(y.shape[1]), zero_columns)
@@ -186,13 +186,21 @@ if __name__ == '__main__':
     else:
         print("检测到已有模型:", SAVE_NAME)
 
-    # # 加载预测器进行测试
-    # predictor = ResNetPredictor(model_path=SAVE_NAME, preprocess_path=PREPROCESS_FILE)
+    # 加载预测器进行测试
+    Pd_file = 'validate_data/Pd_validate.pt'
+    data_file = 'validate_data/linear_result_validate.pt'
+    predictor = ResNetPredictor(model_path=SAVE_NAME, preprocess_path=PREPROCESS_FILE)
     
-    # # 加载一批测试样本进行预测
-    # X = torch.load(Pd_file).numpy()
-    # predictions = predictor.predict(X[1000:1010])
+    # 加载一批测试样本进行预测
+    X = torch.load(Pd_file).numpy()
+    predictions = predictor.predict(X[1000:1010])
     
-    # print("预测结果示例（第1条）：")
-    # print(predictions[0])
+    print("预测结果示例（第1条）：")
+    print(predictions[1])
+
+    real = torch.load(data_file)[:,:54].numpy()
+    print("真实值示例（第1条）：")
+    print(real[1001])
+
+    print(real[1001] - predictions[1])
 
