@@ -27,9 +27,10 @@ This project aims to develop a deep learning-based predictor for power system op
 - 使用验证集评估模型泛化性能；
 - 可视化真实值与预测值的差异；
 - 尝试改进模型结构或训练方法，提高准确性与鲁棒性。
+- 尝试数据增强，生成更多场景的数据
 
 - Evaluate model generalization using the validation set;
 - Visualize prediction vs ground truth;
 - Experiment with improved architectures or training strategies for better performance and robustness.
-
+- Experiment with data augmentation to generate more diverse scenarios.
 ---
