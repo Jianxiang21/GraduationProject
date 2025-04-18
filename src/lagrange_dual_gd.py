@@ -1,16 +1,25 @@
 import numpy as np
-from case118dcopf import get_params,init_ppc
+from case118dcopf import get_params,init_ppc, solve_dcopf
 import pypower.api as pp
 import torch
-from ResNet import ResNetPredictor
+import ResNet_poly
+import ResNet_poly_lambda
+from timeit import default_timer as timer
 
-POLY_MODEL_PATH = "model/poly_resnet_model.pt"
-POLY_PROCESS_FILE = "model_data/poly_resnet_preprocess.npz"
+
+POLY_MODEL_PATH = "model/poly_resnet_model_50epoch54output.pt"
+POLY_MODEL_PATH_LAMBDA = "model/poly_resnet_model_500epoch_lambda1.pt"
+POLY_PROCESS_FILE_LAMBDA = "model_data/poly_resnet_preprocess_lambda1.npz"
+POLY_PROCESS_FILE = "model_data/poly_resnet_preprocess_54.npz"
 PD_FILE = "train_data/Pd_torch.pt"
 
-predictor = ResNetPredictor(
+predictor_optimal = ResNet_poly.ResNetPredictor(
     model_path=POLY_MODEL_PATH,
     preprocess_path=POLY_PROCESS_FILE
+)
+predictor_lambda = ResNet_poly_lambda.ResNetPredictor(
+    model_path=POLY_MODEL_PATH_LAMBDA,
+    preprocess_path=POLY_PROCESS_FILE_LAMBDA
 )
 
 def setup_ppc(idx, pd_file=PD_FILE):
@@ -90,7 +99,7 @@ def dual_gradient_ascent_refinement(
     return pg, lamda, mu1_plus, mu1_minus, mu2_plus, mu2_minus
 
 def dual_gradient_ascent_refinement_improved(
-    ppc, predictor,
+    ppc, predictor_optimal, predictor_lambda,
     init_pg=None, init_lambda=None,
     init_mu1_plus=None, init_mu1_minus=None,
     init_mu2_plus=None, init_mu2_minus=None,
@@ -104,10 +113,11 @@ def dual_gradient_ascent_refinement_improved(
     l = len(Fmax)
 
     # 初值设定（支持用户提供预测初值）
-    load_tensor = torch.tensor(p_load, dtype=torch.float32).unsqueeze(0)
-    prediction = predictor.predict(load_tensor).squeeze(0) 
-
-    pg = prediction[:m]
+    # load_tensor = torch.tensor(p_load, dtype=torch.float32).unsqueeze(0)
+    pg = predictor_optimal.predict(np.array([p_load])).squeeze(0)
+    lamda = predictor_lambda.predict(np.array([p_load])).squeeze(0) / 10000
+    print(lamda)
+    # lamda = -25.159929691274353
     print("pg:", sum(pg))
     
     # lamda = prediction[m]
@@ -116,7 +126,7 @@ def dual_gradient_ascent_refinement_improved(
     # mu2_plus = prediction[m+1+2*l:m+1+2*l+m]
     # mu2_minus = prediction[m+1+2*l+m:]
 
-    lamda = init_lambda if init_lambda is not None else 0.0
+    # lamda = init_lambda if init_lambda is not None else 0.0
     mu1_plus = init_mu1_plus if init_mu1_plus is not None else np.zeros(l)
     mu1_minus = init_mu1_minus if init_mu1_minus is not None else np.zeros(l)
     mu2_plus = init_mu2_plus if init_mu2_plus is not None else np.zeros(m)
@@ -172,7 +182,7 @@ if __name__ == "__main__":
         ppc,
         alpha=0.002, max_iter=1000, tol=1e-2,
     )
-    # print("pg:", pg)
+
     # print("pg:", pg)
     # print("lamda:", lamda)
     # print("mu1_plus:", mu1_plus)
@@ -180,16 +190,32 @@ if __name__ == "__main__":
     # print("mu2_plus:", mu2_plus)
     # print("mu2_minus:", mu2_minus)
 
-    # 使用改进的算法
-    # pg_improved, lamda_improved, mu1_plus_improved, mu1_minus_improved, mu2_plus_improved, mu2_minus_improved = 
-    dual_gradient_ascent_refinement_improved(
+    start = timer()
+    pg, lamda, mu1_plus, mu1_minus, mu2_plus, mu2_minus = dual_gradient_ascent_refinement_improved(
         ppc,
-        predictor,
+        predictor_optimal, predictor_lambda,
         alpha=0.002, max_iter=1000, tol=1e-2,
     )
-    # print("Improved pg:", pg_improved)
-    # print("Improved lamda:", lamda_improved)
-    # print("Improved mu1_plus:", mu1_plus_improved)
-    # print("Improved mu1_minus:", mu1_minus_improved)
-    # print("Improved mu2_plus:", mu2_plus_improved)
-    # print("Improved mu2_minus:", mu2_minus_improved)
+    end = timer()
+    print("Time taken for dual gradient ascent refinement:", end - start)
+    # print("pg:", pg)
+    # print("lamda:", lamda)
+    # print("mu1_plus:", mu1_plus)
+    # print("mu1_minus:", mu1_minus)
+    # print("mu2_plus:", mu2_plus)
+    # print("mu2_minus:", mu2_minus)
+
+    start = timer()
+    solve_dcopf(ppc, type = 'poly')
+    end = timer()
+    print("Time taken for Gurobi solver:", end - start)
+
+
+
+    # result = torch.load("train_data/poly_result.pt")
+    # result100 = result[100, :54].numpy().tolist()
+    # print("result100:", result100)
+
+    # result = torch.load("train_data/poly_result.pt")
+    # result0 = result[0, :]
+    # print("result0:", result0)

@@ -264,7 +264,7 @@ def solve_dcopf(ppc,type='linear'):
         
         # 拉格朗日乘子
         result['lambda_power_balance'] = power_balance.Pi * baseMVA  # $/MWh
-        
+        # 这里可能有错误，不应该是乘以 baseMVA，而是除以 baseMVA
         # 线路约束乘子
         result['lambda_line_max'] = [c.Pi * baseMVA for c in line_max_constr]
         result['lambda_line_min'] = [c.Pi * baseMVA for c in line_min_constr]
