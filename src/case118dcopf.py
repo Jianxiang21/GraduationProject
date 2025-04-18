@@ -61,6 +61,20 @@ def set_load(ppc, data_load, load_buses):
 
     return ppc
 
+def init_ppc():
+    """
+    设置 ppc 的参数
+    :return: 初始化的 ppc
+    """
+    ppc = pypower.case118()
+    # ppc['gencost'][:, 4] = 0  # 将发电机成本设置为 0
+    ppc['branch'][:, RATE_A] = 200  # 线路潮流约束
+    ppc['branch'][[95,103,106], RATE_A] = 50  # 线路潮流约束
+    ppc['gen'][:20, 8] = 50  # 发电机最大出力
+    ppc['gen'][47:53, 8] = 300  # 发电机最大出力
+
+    return ppc
+
 def set_case118(utc, load, wind, solar):
     """
     设置 118 节点系统的负载数据
@@ -74,12 +88,7 @@ def set_case118(utc, load, wind, solar):
     data_wind = load_data(wind, utc, 'wind')
     data_solar = load_data(solar, utc, 'solar')
 
-    ppc = pypower.case118()
-    # ppc['gencost'][:, 4] = 0  # 将发电机成本设置为 0
-    ppc['branch'][:, RATE_A] = 200  # 线路潮流约束
-    ppc['branch'][[95,103,106], RATE_A] = 50  # 线路潮流约束
-    ppc['gen'][:20, 8] = 50  # 发电机最大出力
-    ppc['gen'][47:53, 8] = 300  # 发电机最大出力
+    ppc = init_ppc()
 
     solar_buses = [15, 33, 49, 66, 80, 95]
     wind_buses = [50, 90, 100, 45, 68, 110]

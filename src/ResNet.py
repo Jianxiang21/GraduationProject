@@ -166,12 +166,19 @@ class ResNetPredictor:
         return (x - self.mean) / self.std
 
     def predict(self, x):
-        x_tensor = torch.tensor(self.preprocess(x), dtype=torch.float32).to(self.device)
+        x_np = self.preprocess(x)
+        if isinstance(x_np, torch.Tensor):
+            x_tensor = x_np.clone().detach().float().to(self.device)
+        else:
+            x_tensor = torch.tensor(x_np, dtype=torch.float32).to(self.device)
+
         with torch.no_grad():
             output = self.model(x_tensor).cpu().numpy()
+
         full_output = np.zeros((x.shape[0], FULL_OUTPUT_DIM))
         full_output[:, self.non_zero_cols] = output
         return full_output
+
 
 # ======== Run Entry ========
 if __name__ == '__main__':
