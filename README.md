@@ -13,12 +13,14 @@ This project aims to develop a deep learning-based predictor for power system op
 - 构建并标准化训练数据集与验证集（验证集完全未见过）；
 - 使用残差网络（ResNet）完成模型设计与训练；
 - 模型预测结果包括发电机出力与多类约束的拉格朗日乘子；
-- 项目结构清晰，代码模块化，便于扩展与评估。
+- 项目结构清晰，代码模块化，便于扩展与评估;
+- 发现模型对线性目标函数的表现较差，尝试将最优解单独拿出训练，最优解预测表现非常良好。
 
 - Constructed standardized training and validation datasets (validation set is strictly unseen);
 - Built and trained a ResNet-style model for prediction;
 - Model outputs include optimal generator outputs and Lagrange multipliers for all constraints;
-- Modular project structure for easy evaluation and further development.
+- Modular project structure for easy evaluation and further development；
+- Observed poor performance on linear objective functions, but excellent results when training the model to predict the optimal solution separately.
 
 ---
 

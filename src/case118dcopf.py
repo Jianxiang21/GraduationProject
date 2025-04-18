@@ -8,6 +8,7 @@ from datetime import datetime
 from pypower.makePTDF import makePTDF
 from pypower.idx_brch import RATE_A
 import torch
+from scipy import sparse
 
 START_TIME = "3/1/2024 5:00:00 AM"
 END_TIME = "3/1/2025 4:00:00 AM"
@@ -37,7 +38,13 @@ def load_data(data, utc, data_type) -> np.ndarray:
     return data/400
 
 def set_load(ppc, data_load, load_buses):
-    """设置负载数据"""
+    """
+    设置负载数据
+    :param ppc: PyPower格式的电网数据
+    :param data_load: 负载数据
+    :param load_buses: 负载节点列表
+    :return: 更新后的 ppc
+    """
     # 确保 data_load 是 numpy 数组
     data_load = np.array(data_load)
 
@@ -55,7 +62,14 @@ def set_load(ppc, data_load, load_buses):
     return ppc
 
 def set_case118(utc, load, wind, solar):
-    """设置 118 节点系统的负载数据"""
+    """
+    设置 118 节点系统的负载数据
+    :param utc: UTC 时间戳
+    :param load: 负载数据
+    :param wind: 风电数据
+    :param solar: 太阳能数据
+    :return: PyPower格式的电网数据
+    """
     data_load = load_data(load, utc, 'load')
     data_wind = load_data(wind, utc, 'wind')
     data_solar = load_data(solar, utc, 'solar')
@@ -79,7 +93,11 @@ def set_case118(utc, load, wind, solar):
     return ppc
 
 def PTDF(ppc):
-    """计算 PTDF 矩阵"""
+    """
+    计算 PTDF 矩阵
+    :param ppc: PyPower格式的电网数据
+    :return: PTDF 矩阵
+    """
     ppc = pypower.ext2int(ppc)
     baseMVA = ppc['baseMVA']
     bus = ppc['bus']
@@ -87,29 +105,56 @@ def PTDF(ppc):
     PTDF_full = pypower.makePTDF(baseMVA, bus, branch)
     return PTDF_full
 
-def get_optimization_params(ppc):
-    """提取优化问题所需参数"""
-    c = ppc["gencost"][:, 5]  # 线性成本系数
-    F_max = ppc["branch"][:, 5]  # 线路最大功率流约束
-    g_max = ppc["gen"][:, 8]  # 发电机最大功率
-    g_min = ppc["gen"][:, 9]  # 发电机最小功率
-    return c, F_max, g_min, g_max
-
-
-
 def format_timestamp(ts):
-        # 处理小时（转换为12小时制并去除前导零）
-        hour_12 = ts.hour % 12
-        hour_12 = 12 if hour_12 == 0 else hour_12  # 处理0小时的情况（如12 AM）
-        am_pm = ts.strftime('%p')  # 获取AM/PM
-        # 组合为字符串，月、日、小时直接转为整数去除前导零
-        return f"{ts.month}/{ts.day}/{ts.year} {hour_12}:{ts.minute:02}:{ts.second:02} {am_pm}"
+    """
+    将时间戳格式化为字符串
+    :param ts: 时间戳
+    :return: 格式化后的字符串
+    """
+    # 处理小时（转换为12小时制并去除前导零）
+    hour_12 = ts.hour % 12
+    hour_12 = 12 if hour_12 == 0 else hour_12  # 处理0小时的情况（如12 AM）
+    am_pm = ts.strftime('%p')  # 获取AM/PM
+    # 组合为字符串，月、日、小时直接转为整数去除前导零
+    return f"{ts.month}/{ts.day}/{ts.year} {hour_12}:{ts.minute:02}:{ts.second:02} {am_pm}"
 
 def format_timelist(start_time, end_time):
     # 生成start_time end_time之间每隔 1 小时的时间戳
     timestamps = pd.date_range(start_time, end_time, freq='h')
     formatted_timestamps = [format_timestamp(ts) for ts in timestamps]
     return formatted_timestamps
+
+def makeCg(ppc):
+    """
+    计算发电机连接矩阵Cg
+    :param ppc: PyPower格式的电网数据
+    :return: 发电机连接矩阵Cg
+    """
+    ppc = pypower.ext2int(ppc)
+    nb = ppc['bus'].shape[0]  # 节点数
+    ng = ppc['gen'].shape[0]  # 发电机数
+
+    cg = sparse.coo_matrix((np.ones(ng), (ppc['gen'][:, 0].astype(int), range(ng))), shape=(nb, ng), dtype=int).tocsr()
+    
+    return cg
+
+def get_params(ppc):
+    """
+    提取优化问题所需参数
+    :param ppc: PyPower格式的电网数据
+    :return: 发电机成本系数、线路最大功率流约束、发电机最小功率、发电机最大功率
+    """
+    cg = makeCg(ppc)
+    h = PTDF(ppc)
+
+    ppc = pypower.ext2int(ppc)
+
+    c1 = ppc["gencost"][:, 5]  # 线性成本系数
+    c2 = ppc["gencost"][:, 4]  # 二次成本系数
+    F_max = ppc["branch"][:, 5]  # 线路最大功率流约束
+    g_max = ppc["gen"][:, 8]  # 发电机最大功率
+    g_min = ppc["gen"][:, 9]  # 发电机最小功率
+    return c2, c1, cg, h, F_max, g_min, g_max
 
 def solve_dcopf(ppc,type='linear'):
     """
