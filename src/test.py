@@ -1,4 +1,17 @@
-# import torch
+import torch
+import numpy as np
+
+data_path = 'train_data/poly_result.pt'
+data = torch.load(data_path).numpy()
+mu1plus = data[:,55:241]
+mu1minus = data[:,241:427]
+mu2plus = data[:,427:481]
+mu2minus = data[:,481:535]
+
+# print("mu1plus", mu1plus)
+print("mu1minus", mu1minus[100,:].tolist())
+# print("mu2plus", mu2plus)
+# print("mu2minus", mu2minus)
 # import numpy as np
 # from ResNet import ResNetPredictor  # 从你的ResNet.py文件中导入预测器类
 
@@ -20,10 +33,10 @@
 # print("预测结果形状:", predictions.shape)
 # print("第一个样本的预测结果:")
 # print(predictions[0])
-from case118dcopf import makeCg
-import pypower.api as pp
+# from case118dcopf import makeCg
+# import pypower.api as pp
 
-ppc = pp.case118()
-Cg = makeCg(ppc)
-print(Cg)
-print(Cg[0,1])
+# ppc = pp.case118()
+# Cg = makeCg(ppc)
+# print(Cg)
+# print(Cg[0,1])
