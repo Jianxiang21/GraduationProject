@@ -60,6 +60,9 @@ def load_data_with_zero_mask(Pd_path, data_path, test_ratio=0.2):
     X = torch.load(Pd_path).numpy()
     y = torch.load(data_path).numpy()
     
+    y[:,54:] /= 10000
+    y[np.abs(y) < 1e-5] = 0  # 将接近0的值设为0
+    
     zero_columns = np.where(np.all(y == 0, axis=0))[0]
     non_zero_columns = np.setdiff1d(np.arange(y.shape[1]), zero_columns)
     y_reduced = y[:, non_zero_columns]

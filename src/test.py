@@ -1,15 +1,18 @@
 import torch
 import numpy as np
 
-data_path = 'train_data/poly_result.pt'
+data_path = 'train_data/linear_result.pt'
 data = torch.load(data_path).numpy()
+l = data[:,54]  # lambda 平衡约束维度
 mu1plus = data[:,55:241]
 mu1minus = data[:,241:427]
 mu2plus = data[:,427:481]
 mu2minus = data[:,481:535]
 
+print("l", l[100:110].tolist())
+
 # print("mu1plus", mu1plus)
-print("mu1minus", mu1minus[100,:].tolist())
+# print("mu1minus", mu1minus[100,:].tolist())
 # print("mu2plus", mu2plus)
 # print("mu2minus", mu2minus)
 # import numpy as np
