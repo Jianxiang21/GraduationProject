@@ -15,24 +15,24 @@ This project aims to develop a deep learning-based predictor for power system op
 - 模型预测结果包括发电机出力与多类约束的拉格朗日乘子；
 - 项目结构清晰，代码模块化，便于扩展与评估;
 - 发现模型对线性目标函数的表现较差，尝试将最优解单独拿出训练，最优解预测表现非常良好。
+- 用验证集评估模型泛化性能；
+- 构建primal dual的求解范式，求解LP和QP的算例，检测当前模型和求解模式的有效性
 
 - Constructed standardized training and validation datasets (validation set is strictly unseen);
 - Built and trained a ResNet-style model for prediction;
 - Model outputs include optimal generator outputs and Lagrange multipliers for all constraints;
 - Modular project structure for easy evaluation and further development；
 - Observed poor performance on linear objective functions, but excellent results when training the model to predict the optimal solution separately.
+- Evaluated model generalization using the validation set;
+- Established a primal-dual solving paradigm for LP and QP problems, validating the effectiveness of the current model and solving approach.
 
 ---
 
 ## 🔧 下一步计划 / Next Steps
 
-- 使用验证集评估模型泛化性能；
-- 可视化真实值与预测值的差异；
-- 尝试改进模型结构或训练方法，提高准确性与鲁棒性。
 - 尝试数据增强，生成更多场景的数据
+- 尝试计算其他优化问题算例
 
-- Evaluate model generalization using the validation set;
-- Visualize prediction vs ground truth;
-- Experiment with improved architectures or training strategies for better performance and robustness.
 - Experiment with data augmentation to generate more diverse scenarios.
+- Explore other optimization problem cases for model training and evaluation.
 ---

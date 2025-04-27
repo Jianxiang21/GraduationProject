@@ -12,8 +12,8 @@ FULL_OUTPUT_DIM = 535
 HIDDEN_DIM = 64
 LEARNING_RATE = 0.001
 BATCH_SIZE = 64
-EPOCHS = 400
-SAVE_NAME = 'model/linear_resnet_model_400epoch.pt'
+EPOCHS = 100
+SAVE_NAME = 'model/linear_resnet_model_100epoch.pt'
 PREPROCESS_FILE = 'model_data/linear_resnet_preprocess.npz'
 
 # ======== Model ========
@@ -148,7 +148,7 @@ def main_train(Pd_path, data_path):
     plt.plot(train_losses, label='Train')
     plt.plot(test_losses, label='Test')
     plt.legend(); plt.grid(); plt.title("Loss Curve")
-    plt.savefig('loss_curve.png', dpi=300)
+    plt.savefig('linear_loss_curve.png', dpi=300)
     plt.show()
 
 # ======== Predictor with restoration ========

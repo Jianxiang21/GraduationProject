@@ -5,6 +5,7 @@ import torch
 import ResNet_poly
 import ResNet_poly_lambda
 import ResNet_poly_mu
+import ResNet
 from timeit import default_timer as timer
 import matplotlib.pyplot as plt
 
@@ -16,6 +17,9 @@ POLY_MODEL_PATH_MU = "model/poly_resnet_model_mu_50epoch.pt"
 POLY_PROCESS_FILE_LAMBDA = "model_data/poly_resnet_preprocess_lambda1.npz"
 POLY_PROCESS_FILE = "model_data/poly_resnet_preprocess_54.npz"
 POLY_PROCESS_FILE_MU = "model_data/poly_resnet_preprocess_mu.npz"
+
+LINEAR_MODEL_PATH = "model/linear_resnet_model_100epoch.pt"
+LINEAR_PROCESS_FILE = "model_data/linear_resnet_preprocess.npz"
 
 # PD_FILE = "train_data/Pd_torch.pt"
 PD_FILE = "validate_data/Pd_validate.pt"
@@ -31,6 +35,10 @@ predictor_lambda = ResNet_poly_lambda.ResNetPredictor(
 predictor_mu = ResNet_poly_mu.ResNetPredictor(
     model_path=POLY_MODEL_PATH_MU,
     preprocess_path=POLY_PROCESS_FILE_MU
+)
+predictor_linear = ResNet.ResNetPredictor(
+    model_path=LINEAR_MODEL_PATH,
+    preprocess_path=LINEAR_PROCESS_FILE
 )
 
 def setup_ppc(idx, pd_file=PD_FILE):
@@ -114,6 +122,78 @@ def primal_dual_refinement(
         # 如果没有收敛，输出最后的结果
         print("Warning: Maximum iterations reached without convergence.")
         print("Final primal residual:", primal_res)
+
+    return pg, lamda, mu1_plus, mu1_minus, mu2_plus, mu2_minus
+
+def primal_dual_refinement_improved(
+    ppc,predictor,
+    alpha=1e-3, alpha_pg = 0.1, beta = 0.2, max_iter=500, tol=1e-4,plot=True,
+):
+    c2, c1, Cg, h, Fmax, gmin, gmax = get_params(ppc)
+    p_load = ppc["bus"][:, 2]  # 负荷功率
+    Pd_total = np.sum(p_load)  # 总负荷功率
+    m = len(c2)
+    l = len(Fmax)
+
+    predict = predictor.predict(np.array([p_load])).squeeze(0)
+    pg = predict[:m]
+    lamda = - predict[m]
+    mu1_plus = predict[m+1:m+1+l]
+    mu1_minus = predict[m+1+l:m+1+2*l]
+    mu2_plus = predict[m+1+2*l:m+1+2*l+m]
+    mu2_minus = predict[m+1+2*l+m:]
+
+    residual_list = []  # 用于记录每次迭代的残差
+
+    for it in range(max_iter):
+        # 收敛性检测（你也可以增加 Lagrangian 残差或 KKT 条件）
+        primal_res = np.abs(np.sum(pg) - Pd_total)
+        residual_list.append(primal_res)
+        if primal_res < tol:
+            print(f"Converged at iter {it}")
+            break
+        # 更新 pg（用解析公式）
+        grad_term = c1 + lamda * np.ones(m) \
+                    + Cg.T @ h.T @ mu1_plus - Cg.T @ h.T @ mu1_minus \
+                    + mu2_plus - mu2_minus
+        # 解析的 pg 更新
+        pg_new = pg - alpha_pg * grad_term
+
+        # 加入 beta 平滑
+        pg = (1 - beta) * pg + beta * pg_new
+
+        # 投影到可行域
+        pg = np.clip(pg, gmin, gmax)
+
+        # 更新拉格朗日乘子（对偶梯度上升）
+        flow = h @ (Cg @ pg - p_load)
+
+        lamda += alpha * (np.sum(pg) - Pd_total)
+        mu1_plus += alpha * (flow - Fmax)
+        mu1_minus -= alpha * (flow + Fmax)
+        mu2_plus += alpha * (pg - gmax)
+        mu2_minus -= alpha * (pg - gmin)
+
+        # 投影到非负
+        # lamda = np.maximum(lamda, 0)
+        mu1_plus = np.maximum(mu1_plus, 0)
+        mu1_minus = np.maximum(mu1_minus, 0)
+        mu2_plus = np.maximum(mu2_plus, 0)
+        mu2_minus = np.maximum(mu2_minus, 0)
+
+        
+    if it == max_iter - 1:
+        # 如果没有收敛，输出最后的结果
+        print("Warning: Maximum iterations reached without convergence.")
+        print("Final primal residual:", primal_res)
+    if plot:
+        plt.plot(residual_list)
+        plt.xlabel("Iteration")
+        plt.ylabel("Primal Residual")
+        plt.title("Primal Residual Convergence")
+        plt.grid(True)
+        # plt.show()
+        plt.savefig("primal_residual", dpi=300)
 
     return pg, lamda, mu1_plus, mu1_minus, mu2_plus, mu2_minus
 
@@ -335,6 +415,14 @@ if __name__ == "__main__":
     # print("Primal solution:", pg)
     print("Lambda:", lamda)
 
+    start = timer()
+    primal_dual_refinement_improved(
+        ppc, predictor_linear,
+        alpha=0.1, max_iter=4000, tol=1e-3, alpha_pg=0.17,beta = 0.2
+    )
+    end = timer()
+    print("Time taken for primal dual refinement:", end - start)
+
     
     start = timer()
     dual_gradient_ascent_refinement0(
@@ -354,8 +442,14 @@ if __name__ == "__main__":
     print("Time taken for dual gradient ascent refinement:", end - start)
     
 
-    # start = timer()
-    # solve_dcopf(ppc, type = 'poly')
-    # end = timer()
-    # print("Time taken for Gurobi solver:", end - start)
+    start = timer()
+    solve_dcopf(ppc)
+    end = timer()
+    print("Time taken for LP:", end - start)
+
+    start = timer()
+    solve_dcopf(ppc, type="poly")
+    end = timer()
+    print("Time taken for QP:", end - start)
+
 
