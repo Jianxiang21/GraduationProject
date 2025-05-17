@@ -263,15 +263,15 @@ def solve_dcopf(ppc,type='linear'):
         result['Pg_opt'] = [Pg[i].X * baseMVA for i in range(ng)]
         
         # 拉格朗日乘子
-        result['lambda_power_balance'] = power_balance.Pi * baseMVA  # $/MWh
+        result['lambda_power_balance'] = power_balance.Pi / baseMVA  # $/MWh
         # 这里可能有错误，不应该是乘以 baseMVA，而是除以 baseMVA
         # 线路约束乘子
-        result['lambda_line_max'] = [c.Pi * baseMVA for c in line_max_constr]
-        result['lambda_line_min'] = [c.Pi * baseMVA for c in line_min_constr]
+        result['lambda_line_max'] = [c.Pi / baseMVA for c in line_max_constr]
+        result['lambda_line_min'] = [c.Pi / baseMVA for c in line_min_constr]
         
         # 发电机出力上下限约束乘子
-        result['lambda_pg_min'] = [c.Pi * baseMVA for c in pg_min_constr]
-        result['lambda_pg_max'] = [c.Pi * baseMVA for c in pg_max_constr]
+        result['lambda_pg_min'] = [c.Pi / baseMVA for c in pg_min_constr]
+        result['lambda_pg_max'] = [c.Pi / baseMVA for c in pg_max_constr]
     else:
         raise RuntimeError(f"优化失败，状态码: {model.status}")
     

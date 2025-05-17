@@ -441,16 +441,26 @@ if __name__ == "__main__":
     )
     end = timer()
     print("Time taken for dual gradient ascent refinement:", end - start)
+    # print("Primal solution:", pg)
+    print("Lambda:", lamda)
+    print("Mu1_plus:", mu1_plus)
+    
+    print("Mu2_plus:", mu2_plus)
+    print("Mu2_minus:", mu2_minus)
     
 
-    start = timer()
-    solve_dcopf(ppc)
-    end = timer()
-    print("Time taken for LP:", end - start)
+    # start = timer()
+    # solve_dcopf(ppc)
+    # end = timer()
+    # print("Time taken for LP:", end - start)
 
-    start = timer()
-    solve_dcopf(ppc, type="poly")
-    end = timer()
-    print("Time taken for QP:", end - start)
+    # start = timer()
+    result = solve_dcopf(ppc, type="poly")
+    print("lambda_pg_min:",result['lambda_pg_min'])
+    print("Mu2_minus:", mu2_minus)
+    print("Mu1_minus:", mu1_minus)
+    print("lambda_pg_max:",result['lambda_line_min'])
+    # end = timer()
+    # print("Time taken for QP:", end - start)
 
 
