@@ -405,7 +405,8 @@ def dual_gradient_ascent_refinement_improved(
 
 
 if __name__ == "__main__":
-    ppc = setup_ppc(1000)
+    ppc = setup_ppc(53)
+    # ppc = pp.case118()
 
     pg, lamda, mu1_plus, mu1_minus, mu2_plus, mu2_minus = primal_dual_refinement(
         ppc,
