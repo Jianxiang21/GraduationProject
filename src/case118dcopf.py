@@ -261,7 +261,8 @@ def solve_dcopf(ppc,type='linear'):
     # 求解模型
     model.optimize()
     end = timer()
-    print(f"求解时间: {end - start:.2f}秒")
+    solve_time = end - start
+    # print(f"求解时间: {end - start:.5f}秒")
     # 结果处理
     result = {}
     if model.status == GRB.OPTIMAL:
@@ -281,7 +282,8 @@ def solve_dcopf(ppc,type='linear'):
     else:
         raise RuntimeError(f"优化失败，状态码: {model.status}")
     
-    return result
+    return result, solve_time
+
 
 # def concat_torch(data_dict):
 #     """

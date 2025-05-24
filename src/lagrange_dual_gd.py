@@ -519,59 +519,79 @@ def primal_dual_qp_smooth_pred(
 
 if __name__ == "__main__":
     ppc = setup_ppc(53)
-    start = timer()
-    *_, residual_list_lp = primal_dual_lp(
-        ppc,
-        alpha=0.1, max_iter=4000, tol=1e-3, alpha_pg=0.15,plot=False
-    )
-    end = timer()
-    print("Time taken for primal_dual_lp:", end - start)
+    lp_time = []
+    qp_time = []
+    lp_smooth_time = []
+    qp_smooth_time = []
+    lp_smooth_pred_time = []
+    qp_smooth_pred_time = []
+    gurobi_qp_time = []
+    gurobi_lp_time = []
+    for i in range(10):
+        start = timer()
+        *_, residual_list_lp = primal_dual_lp(
+            ppc,
+            alpha=0.1, max_iter=4000, tol=1e-3, alpha_pg=0.15,plot=False
+        )
+        end = timer()
+        lp_time.append(end - start)
 
-    start = timer()
-    *_, residual_list_lp_smooth = primal_dual_lp_smooth(
-        ppc,
-        alpha=0.1, beta = 0.18, max_iter=4000, tol=1e-3, alpha_pg=0.15,plot=False
-    )
-    end = timer()
-    print("Time taken for primal_dual_lp_smooth:", end - start)
+        start = timer()
+        *_, residual_list_lp_smooth = primal_dual_lp_smooth(
+            ppc,
+            alpha=0.1, beta = 0.18, max_iter=4000, tol=1e-3, alpha_pg=0.15,plot=False
+        )
+        end = timer()
+        lp_smooth_time.append(end - start)
 
-    start = timer()
-    *_, residual_list_qp = primal_dual_qp(
-        ppc,
-        alpha=0.002, max_iter=1000, tol=1e-3,plot=False
-    )
-    end = timer()
-    print("Time taken for primal_dual_qp:", end - start)
+        start = timer()
+        *_, residual_list_qp = primal_dual_qp(
+            ppc,
+            alpha=0.002, max_iter=1000, tol=1e-3,plot=False
+        )
+        end = timer()
+        qp_time.append(end - start)
 
-    start = timer()
-    *_, residual_list_qp_smooth = primal_dual_qp_smooth(
-        ppc,
-        alpha=0.002, beta = 0.18, max_iter=1000, tol=1e-3,plot=False
-    )
-    end = timer()
-    print("Time taken for primal_dual_qp_smooth:", end - start)
+        start = timer()
+        *_, residual_list_qp_smooth = primal_dual_qp_smooth(
+            ppc,
+            alpha=0.002, beta = 0.18, max_iter=1000, tol=1e-3,plot=False
+        )
+        end = timer()
+        qp_smooth_time.append(end - start)
 
-    # 预测器方法
-    start = timer()
-    *_, residual_list_lp_smooth_pred = primal_dual_lp_smooth_pred(
-        ppc,
-        predictor_linear,
-        alpha=0.1, beta = 0.18, alpha_pg=0.15, max_iter=1000, tol=1e-3,plot=False
-    )
-    end = timer()
-    print("Time taken for primal_dual_lp_smooth_pred:", end - start)
+        # 预测器方法
+        start = timer()
+        *_, residual_list_lp_smooth_pred = primal_dual_lp_smooth_pred(
+            ppc,
+            predictor_linear,
+            alpha=0.1, beta = 0.18, alpha_pg=0.15, max_iter=1000, tol=1e-3,plot=False
+        )
+        end = timer()
+        lp_smooth_pred_time.append(end - start)
 
-    start = timer()
-    *_, residual_list_qp_smooth_pred = primal_dual_qp_smooth_pred(
-        ppc,
-        predictor_optimal, predictor_lambda, predictor_mu,
-        alpha=0.002, beta = 0.18, max_iter=1000, tol=1e-3,plot=False
-    )
-    end = timer()
-    print("Time taken for primal_dual_qp_smooth_pred:", end - start)
+        start = timer()
+        *_, residual_list_qp_smooth_pred = primal_dual_qp_smooth_pred(
+            ppc,
+            predictor_optimal, predictor_lambda, predictor_mu,
+            alpha=0.002, beta = 0.18, max_iter=1000, tol=1e-3,plot=False
+        )
+        end = timer()
+        qp_smooth_pred_time.append(end - start)
 
-    solve_dcopf(ppc)
-    solve_dcopf(ppc, type="poly")
+        _, time_gurobi_lp = solve_dcopf(ppc)
+        gurobi_lp_time.append(time_gurobi_lp)
+        _, time_gurobi_qp = solve_dcopf(ppc, type="poly")
+        gurobi_qp_time.append(time_gurobi_qp)
+
+    print("LP time:", sum(lp_time) / len(lp_time))
+    print("QP time:", sum(qp_time) / len(qp_time))
+    print("LP Smooth time:", sum(lp_smooth_time) / len(lp_smooth_time))
+    print("QP Smooth time:", sum(qp_smooth_time) / len(qp_smooth_time))
+    print("LP Smooth Pred time:", sum(lp_smooth_pred_time) / len(lp_smooth_pred_time))
+    print("QP Smooth Pred time:", sum(qp_smooth_pred_time) / len(qp_smooth_pred_time))
+    print("Gurobi LP time:", sum(gurobi_lp_time) / len(gurobi_lp_time))
+    print("Gurobi QP time:", sum(gurobi_qp_time) / len(gurobi_qp_time))
 
     # # 绘制 LP 方法的残差对比图
     # plt.figure(figsize=(6, 4))
