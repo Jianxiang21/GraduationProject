@@ -9,6 +9,7 @@ from pypower.makePTDF import makePTDF
 from pypower.idx_brch import RATE_A
 import torch
 from scipy import sparse
+from timeit import default_timer as timer
 
 START_TIME = "3/1/2024 5:00:00 AM"
 END_TIME = "3/1/2025 4:00:00 AM"
@@ -210,7 +211,11 @@ def solve_dcopf(ppc,type='linear'):
     Pd = bus[:, 2] / baseMVA
     
     # 创建模型
+    start = timer()
     model = gp.Model("DCOPF")
+    model.setParam('Threads', 1)
+    model.setParam('OutputFlag', 0)
+    model.setParam('LogToConsole', 0)
     
     # 定义变量（不直接设置lb/ub，而是通过显式约束）
     Pg = model.addVars(ng, name="Pg")  # 自由变量
@@ -255,7 +260,8 @@ def solve_dcopf(ppc,type='linear'):
     
     # 求解模型
     model.optimize()
-    
+    end = timer()
+    print(f"求解时间: {end - start:.2f}秒")
     # 结果处理
     result = {}
     if model.status == GRB.OPTIMAL:

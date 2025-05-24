@@ -55,12 +55,12 @@ def setup_ppc(idx, pd_file=PD_FILE):
         ppc["bus"][:, 2] = p_load  # 负荷功率
     return ppc
 
-def primal_dual_refinement(
+def primal_dual_lp(
     ppc,
     alpha=1e-3, alpha_pg = 0.1, max_iter=500, tol=1e-4,
     init_pg=None, init_lambda=None,
     init_mu1_plus=None, init_mu1_minus=None,
-    init_mu2_plus=None, init_mu2_minus=None
+    init_mu2_plus=None, init_mu2_minus=None,plot = False
 ):
     c2, c1, Cg, h, Fmax, gmin, gmax = get_params(ppc)
     p_load = ppc["bus"][:, 2]  # 负荷功率
@@ -87,7 +87,14 @@ def primal_dual_refinement(
 
     # C2_diag = np.diag(2 * c2)  # (1/2c2) inverse diag matrix
 
+    residual_list = []
+
     for it in range(max_iter):
+        primal_res = np.abs(np.sum(pg) - Pd_total)
+        residual_list.append(primal_res)
+        if primal_res < tol:
+            print(f"Converged at iter {it}")
+            break
         # 更新 pg（用解析公式）
         grad_term = c1 + lamda * np.ones(m) \
                     + Cg.T @ h.T @ mu1_plus - Cg.T @ h.T @ mu1_minus \
@@ -113,19 +120,98 @@ def primal_dual_refinement(
         mu2_plus = np.maximum(mu2_plus, 0)
         mu2_minus = np.maximum(mu2_minus, 0)
 
-        # 收敛性检测（你也可以增加 Lagrangian 残差或 KKT 条件）
-        primal_res = np.abs(np.sum(pg) - Pd_total)
-        if primal_res < tol:
-            print(f"Converged at iter {it}")
-            break
     if it == max_iter - 1:
         # 如果没有收敛，输出最后的结果
         print("Warning: Maximum iterations reached without convergence.")
         print("Final primal residual:", primal_res)
 
-    return pg, lamda, mu1_plus, mu1_minus, mu2_plus, mu2_minus
+    if plot:
+        plt.plot(residual_list)
+        plt.xlabel("Iteration")
+        plt.ylabel("Primal Residual")
+        plt.title("Primal Residual Convergence")
+        plt.grid(True)
+        # plt.show()
+        plt.savefig("primal_residual_lp", dpi=500)
 
-def primal_dual_refinement_improved(
+    return pg, lamda, mu1_plus, mu1_minus, mu2_plus, mu2_minus,residual_list
+
+def primal_dual_lp_smooth(
+    ppc,
+    alpha=1e-3, alpha_pg = 0.1, beta = 0.2, max_iter=500, tol=1e-4,
+    init_pg=None, init_lambda=None,
+    init_mu1_plus=None, init_mu1_minus=None,
+    init_mu2_plus=None, init_mu2_minus=None,plot=False
+):
+    c2, c1, Cg, h, Fmax, gmin, gmax = get_params(ppc)
+    p_load = ppc["bus"][:, 2]  # 负荷功率
+    Pd_total = np.sum(p_load)  # 总负荷功率
+    m = len(c2)
+    l = len(Fmax)
+
+    # 初值设定（支持用户提供预测初值）
+    pg = init_pg if init_pg is not None else np.zeros(m)
+    lamda = init_lambda if init_lambda is not None else 0.0
+    mu1_plus = init_mu1_plus if init_mu1_plus is not None else np.zeros(l)
+    mu1_minus = init_mu1_minus if init_mu1_minus is not None else np.zeros(l)
+    mu2_plus = init_mu2_plus if init_mu2_plus is not None else np.zeros(m)
+    mu2_minus = init_mu2_minus if init_mu2_minus is not None else np.zeros(m)
+
+    residual_list = []  # 用于记录每次迭代的残差
+
+    for it in range(max_iter):
+        # 收敛性检测（你也可以增加 Lagrangian 残差或 KKT 条件）
+        primal_res = np.abs(np.sum(pg) - Pd_total)
+        residual_list.append(primal_res)
+        if primal_res < tol:
+            print(f"Converged at iter {it}")
+            break
+        # 更新 pg（用解析公式）
+        grad_term = c1 + lamda * np.ones(m) \
+                    + Cg.T @ h.T @ mu1_plus - Cg.T @ h.T @ mu1_minus \
+                    + mu2_plus - mu2_minus
+        # 解析的 pg 更新
+        pg_new = pg - alpha_pg * grad_term
+
+        # 加入 beta 平滑
+        pg = (1 - beta) * pg + beta * pg_new
+
+        # 投影到可行域
+        pg = np.clip(pg, gmin, gmax)
+
+        # 更新拉格朗日乘子（对偶梯度上升）
+        flow = h @ (Cg @ pg - p_load)
+
+        lamda += alpha * (np.sum(pg) - Pd_total)
+        mu1_plus += alpha * (flow - Fmax)
+        mu1_minus -= alpha * (flow + Fmax)
+        mu2_plus += alpha * (pg - gmax)
+        mu2_minus -= alpha * (pg - gmin)
+
+        # 投影到非负
+        # lamda = np.maximum(lamda, 0)
+        mu1_plus = np.maximum(mu1_plus, 0)
+        mu1_minus = np.maximum(mu1_minus, 0)
+        mu2_plus = np.maximum(mu2_plus, 0)
+        mu2_minus = np.maximum(mu2_minus, 0)
+
+        
+    if it == max_iter - 1:
+        # 如果没有收敛，输出最后的结果
+        print("Warning: Maximum iterations reached without convergence.")
+        print("Final primal residual:", primal_res)
+    if plot:
+        plt.plot(residual_list)
+        plt.xlabel("Iteration")
+        plt.ylabel("Primal Residual")
+        plt.title("Primal Residual Convergence")
+        plt.grid(True)
+        # plt.show()
+        plt.savefig("primal_residual_smooth", dpi=500)
+
+    return pg, lamda, mu1_plus, mu1_minus, mu2_plus, mu2_minus, residual_list
+
+def primal_dual_lp_smooth_pred(
     ppc,predictor,
     alpha=1e-3, alpha_pg = 0.1, beta = 0.2, max_iter=500, tol=1e-4,plot=True,
 ):
@@ -193,16 +279,16 @@ def primal_dual_refinement_improved(
         plt.title("Primal Residual Convergence")
         plt.grid(True)
         # plt.show()
-        plt.savefig("primal_residual", dpi=300)
+        plt.savefig("primal_residual_lp_smooth_pred", dpi=500)
 
-    return pg, lamda, mu1_plus, mu1_minus, mu2_plus, mu2_minus
+    return pg, lamda, mu1_plus, mu1_minus, mu2_plus, mu2_minus, residual_list
 
-def dual_gradient_ascent_refinement(
+def primal_dual_qp(
     ppc,
     alpha=1e-3, max_iter=500, tol=1e-4,
     init_pg=None, init_lambda=None,
     init_mu1_plus=None, init_mu1_minus=None,
-    init_mu2_plus=None, init_mu2_minus=None
+    init_mu2_plus=None, init_mu2_minus=None,plot = False
 ):
     c2, c1, Cg, h, Fmax, gmin, gmax = get_params(ppc)
     p_load = ppc["bus"][:, 2]  # 负荷功率
@@ -220,7 +306,15 @@ def dual_gradient_ascent_refinement(
 
     C2_inv_diag = np.diag(1 / (2 * c2))  # (1/2c2) inverse diag matrix
 
+    residual_list = []  # 用于记录每次迭代的残差
+
     for it in range(max_iter):
+        # 收敛性检测（你也可以增加 Lagrangian 残差或 KKT 条件）
+        primal_res = np.abs(np.sum(pg) - Pd_total)
+        residual_list.append(primal_res)
+        if primal_res < tol:
+            print(f"Converged at iter {it}")
+            break
         # 更新 pg（用解析公式）
         grad_term = -c1 - lamda * np.ones(m) \
                     - Cg.T @ h.T @ mu1_plus + Cg.T @ h.T @ mu1_minus \
@@ -247,23 +341,28 @@ def dual_gradient_ascent_refinement(
 
         # print(f"----------Iteration {it}-----------")
 
-        # 收敛性检测（你也可以增加 Lagrangian 残差或 KKT 条件）
-        primal_res = np.abs(np.sum(pg) - Pd_total)
-        if primal_res < tol:
-            print(f"Converged at iter {it}")
-            break
+        
     if it == max_iter - 1:
         # 如果没有收敛，输出最后的结果
         print("Warning: Maximum iterations reached without convergence.")
+    
+    if plot:
+        plt.plot(residual_list)
+        plt.xlabel("Iteration")
+        plt.ylabel("Primal Residual")
+        plt.title("Primal Residual Convergence")
+        plt.grid(True)
+        # plt.show()
+        plt.savefig("primal_residual_qp", dpi=500)
 
-    return pg, lamda, mu1_plus, mu1_minus, mu2_plus, mu2_minus
+    return pg, lamda, mu1_plus, mu1_minus, mu2_plus, mu2_minus, residual_list
 
-def dual_gradient_ascent_refinement0(
+def primal_dual_qp_smooth(
     ppc,
     alpha=1e-3, max_iter=500, tol=1e-4, beta=0.2, 
     init_pg=None, init_lambda=None,
     init_mu1_plus=None, init_mu1_minus=None,
-    init_mu2_plus=None, init_mu2_minus=None
+    init_mu2_plus=None, init_mu2_minus=None,plot = False
 ):
     # 解析问题参数
     c2, c1, Cg, h, Fmax, gmin, gmax = get_params(ppc)
@@ -284,7 +383,14 @@ def dual_gradient_ascent_refinement0(
     # 预计算逆矩阵
     C2_inv_diag = np.diag(1 / (2 * c2))  # (1/2c2) inverse diag matrix
 
+    residual_list = []  # 用于记录每次迭代的残差
+
     for it in range(max_iter):
+        primal_res = np.abs(np.sum(pg) - Pd_total)
+        residual_list.append(primal_res)
+        if primal_res < tol:
+            print(f"Converged at iteration {it}")
+            break
         # --- Step 1: 计算解析的pg更新方向 ---
         grad_term = -c1 - lamda * np.ones(m) \
                     - Cg.T @ h.T @ mu1_plus + Cg.T @ h.T @ mu1_minus \
@@ -313,18 +419,25 @@ def dual_gradient_ascent_refinement0(
         mu2_minus = np.maximum(mu2_minus, 0)
 
         # --- Step 5: 收敛性检测 ---
-        primal_res = np.abs(np.sum(pg) - Pd_total)
-        if primal_res < tol:
-            print(f"Converged at iteration {it}")
-            break
+        
 
     if it == max_iter - 1:
         print("Warning: Maximum iterations reached without convergence.")
         print("Final primal residual:", primal_res)
 
-    return pg, lamda, mu1_plus, mu1_minus, mu2_plus, mu2_minus
+    if plot:
+        plt.plot(residual_list)
+        # plt.yscale("log")  # 使用对数坐标系以便更好地查看收敛情况
+        plt.xlabel("Iteration")
+        plt.ylabel("Primal Residual")
+        plt.title("Primal Residual Convergence")
+        plt.grid(True)
+        # plt.show()
+        plt.savefig("primal_residual_qp_smooth", dpi=500)
 
-def dual_gradient_ascent_refinement_improved(
+    return pg, lamda, mu1_plus, mu1_minus, mu2_plus, mu2_minus, residual_list
+
+def primal_dual_qp_smooth_pred(
     ppc, predictor_optimal, predictor_lambda, predictor_mu,
     alpha=1e-3, beta=0.2,  # 新增beta参数
     max_iter=500, tol=1e-4, plot=True
@@ -401,66 +514,145 @@ def dual_gradient_ascent_refinement_improved(
         plt.grid(True)
         plt.show()
 
-    return pg, lamda, mu1_plus, mu1_minus, mu2_plus, mu2_minus
+    return pg, lamda, mu1_plus, mu1_minus, mu2_plus, mu2_minus, residual_list
 
 
 if __name__ == "__main__":
     ppc = setup_ppc(53)
-    # ppc = pp.case118()
-
-    pg, lamda, mu1_plus, mu1_minus, mu2_plus, mu2_minus = primal_dual_refinement(
-        ppc,
-        alpha=0.1, max_iter=4000, tol=1e-3, alpha_pg=0.17
-    )
-
-    # print("Primal solution:", pg)
-    print("Lambda:", lamda)
-
     start = timer()
-    primal_dual_refinement_improved(
-        ppc, predictor_linear,
-        alpha=0.1, max_iter=4000, tol=1e-3, alpha_pg=0.17,beta = 0.2
+    *_, residual_list_lp = primal_dual_lp(
+        ppc,
+        alpha=0.1, max_iter=4000, tol=1e-3, alpha_pg=0.15,plot=False
     )
     end = timer()
-    print("Time taken for primal dual refinement:", end - start)
+    print("Time taken for primal_dual_lp:", end - start)
 
-    
     start = timer()
-    dual_gradient_ascent_refinement0(
+    *_, residual_list_lp_smooth = primal_dual_lp_smooth(
         ppc,
-        alpha=0.003, max_iter=1000, tol=1e-3
+        alpha=0.1, beta = 0.18, max_iter=4000, tol=1e-3, alpha_pg=0.15,plot=False
     )
     end = timer()
-    print("Time taken for dual gradient ascent refinement0:", end - start)
+    print("Time taken for primal_dual_lp_smooth:", end - start)
 
     start = timer()
-    pg, lamda, mu1_plus, mu1_minus, mu2_plus, mu2_minus = dual_gradient_ascent_refinement_improved(
+    *_, residual_list_qp = primal_dual_qp(
+        ppc,
+        alpha=0.002, max_iter=1000, tol=1e-3,plot=False
+    )
+    end = timer()
+    print("Time taken for primal_dual_qp:", end - start)
+
+    start = timer()
+    *_, residual_list_qp_smooth = primal_dual_qp_smooth(
+        ppc,
+        alpha=0.002, beta = 0.18, max_iter=1000, tol=1e-3,plot=False
+    )
+    end = timer()
+    print("Time taken for primal_dual_qp_smooth:", end - start)
+
+    # 预测器方法
+    start = timer()
+    *_, residual_list_lp_smooth_pred = primal_dual_lp_smooth_pred(
+        ppc,
+        predictor_linear,
+        alpha=0.1, beta = 0.18, alpha_pg=0.15, max_iter=1000, tol=1e-3,plot=False
+    )
+    end = timer()
+    print("Time taken for primal_dual_lp_smooth_pred:", end - start)
+
+    start = timer()
+    *_, residual_list_qp_smooth_pred = primal_dual_qp_smooth_pred(
         ppc,
         predictor_optimal, predictor_lambda, predictor_mu,
-        alpha=0.003, max_iter=1000, tol=1e-3,plot=False
+        alpha=0.002, beta = 0.18, max_iter=1000, tol=1e-3,plot=False
     )
     end = timer()
-    print("Time taken for dual gradient ascent refinement:", end - start)
-    # print("Primal solution:", pg)
-    print("Lambda:", lamda)
-    print("Mu1_plus:", mu1_plus)
+    print("Time taken for primal_dual_qp_smooth_pred:", end - start)
+
+    solve_dcopf(ppc)
+    solve_dcopf(ppc, type="poly")
+
+    # # 绘制 LP 方法的残差对比图
+    # plt.figure(figsize=(6, 4))
+    # plt.plot(residual_list_lp_smooth, label="Primal-Dual LP + Smooth", linewidth=1, alpha=0.9)
+    # plt.plot(residual_list_lp_smooth_pred, label="Primal-Dual LP + Smooth + Predict", linewidth=1, alpha=0.9)
+    # plt.xlabel("Iteration")
+    # plt.ylabel("Residual")
+    # plt.title("Convergence of LP-based Methods")
+    # plt.yscale("log")  # 残差通常对数尺度更清晰
+    # plt.grid(True, linestyle='--', alpha=0.6)
+    # plt.legend()
+    # plt.tight_layout()
+    # plt.savefig("convergence_lp_methods_pred.png", dpi=500)
+    # plt.close()
+
+    # # 绘制 QP 方法的残差对比图
+    # plt.figure(figsize=(6, 4))
+    # plt.plot(residual_list_qp_smooth, label="Primal-Dual QP", linewidth=1, alpha=0.9)
+    # plt.plot(residual_list_qp_smooth_pred, label="Primal-Dual QP + Smooth + Predict",linewidth=1, alpha=0.9)
+    # plt.xlabel("Iteration")
+    # plt.ylabel("Residual")
+    # plt.title("Convergence of QP-based Methods")
+    # plt.yscale("log")
+    # plt.grid(True, linestyle='--', alpha=0.6)
+    # plt.legend()
+    # plt.tight_layout()
+    # plt.savefig("convergence_qp_methods_pred.png", dpi=500)
+    # plt.close()
+    # ppc = pp.case118()
+    # start = timer()
+    # pg, lamda, mu1_plus, mu1_minus, mu2_plus, mu2_minus = primal_dual_lp(
+    #     ppc,
+    #     alpha=0.1, max_iter=4000, tol=1e-3, alpha_pg=0.15
+    # )
+    # end = timer()
+    # print("Time taken for primal dual refinement:", end - start)
+
+    # # print("Primal solution:", pg)
+    # # print("Lambda:", lamda)
+
+    # start = timer()
+    # primal_dual_lp_smooth_pred(
+    #     ppc, predictor_linear,
+    #     alpha=0.1, max_iter=4000, tol=1e-3, alpha_pg=0.15,beta = 0.18
+    # )
+    # end = timer()
+    # print("Time taken for primal dual refinement:", end - start)
+
     
-    print("Mu2_plus:", mu2_plus)
-    print("Mu2_minus:", mu2_minus)
+    # start = timer()
+    # primal_dual_qp_smooth(
+    #     ppc,
+    #     alpha=0.003, max_iter=1000, tol=1e-3
+    # )
+    # end = timer()
+    # print("Time taken for dual gradient ascent refinement0:", end - start)
+
+    # start = timer()
+    # pg, lamda, mu1_plus, mu1_minus, mu2_plus, mu2_minus = primal_dual_qp_smooth_pred(
+    #     ppc,
+    #     predictor_optimal, predictor_lambda, predictor_mu,
+    #     alpha=0.003, max_iter=1000, tol=1e-3,plot=False
+    # )
+    # end = timer()
+    # print("Time taken for dual gradient ascent refinement:", end - start)
+    # print("Primal solution:", pg)
+    # print("Lambda:", lamda)
+    # print("Mu1_plus:", mu1_plus)
+    
+    # print("Mu2_plus:", mu2_plus)
+    # print("Mu2_minus:", mu2_minus)
     
 
     # start = timer()
     # solve_dcopf(ppc)
     # end = timer()
-    # print("Time taken for LP:", end - start)
+    # print("Time taken for LP Gurobi:", end - start)
 
     # start = timer()
-    result = solve_dcopf(ppc, type="poly")
-    print("lambda_pg_min:",result['lambda_pg_min'])
-    print("Mu2_minus:", mu2_minus)
-    print("Mu1_minus:", mu1_minus)
-    print("lambda_pg_max:",result['lambda_line_min'])
+    # result = solve_dcopf(ppc, type="poly")
     # end = timer()
-    # print("Time taken for QP:", end - start)
+    # print("Time taken for poly Gurobi:", end - start)
 
 
