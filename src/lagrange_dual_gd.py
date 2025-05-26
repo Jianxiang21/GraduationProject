@@ -654,10 +654,10 @@ if __name__ == "__main__":
     #     qp_time.append(end - start)
 
     #     start = timer()
-    #     *_, residual_list_qp_smooth = primal_dual_qp_smooth(
-    #         ppc,
-    #         alpha=0.002, beta = 0.18, max_iter=1000, tol=1e-3,plot=False
-    #     )
+    *_, residual_list_qp_smooth = primal_dual_qp_smooth(
+        ppc,
+        alpha=0.002, beta = 0.18, max_iter=1000, tol=1e-3,plot=False
+    )
     #     end = timer()
     #     qp_smooth_time.append(end - start)
 

@@ -8,6 +8,10 @@ import ResNet_poly
 import ResNet_poly_lambda
 import ResNet_poly_mu
 import ResNet
+import os
+
+
+
 
 POLY_MODEL_PATH = "model/poly_resnet_model_50epoch54output.pt"
 POLY_MODEL_PATH_LAMBDA = "model/poly_resnet_model_500epoch_lambda1.pt"
@@ -126,14 +130,62 @@ def plot_pg_comparison():
     plt.tight_layout()
     plt.show()
 
+def pca_plot(real_data, fake_data):
+    # 使用 PCA 降维到二维
+    X = np.vstack([real_data, fake_data])
+    y = np.array([0]*len(real_data) + [1]*len(fake_data))  # 0: 真实数据, 1: 生成数据
+    pca = PCA(n_components=2)
+    X_pca = pca.fit_transform(X)
+
+    # 可视化
+    plt.figure(figsize=(8, 6))
+    plt.scatter(X_pca[y==0, 0], X_pca[y==0, 1], c='blue', label='Real Data', alpha=0.6)
+    plt.scatter(X_pca[y==1, 0], X_pca[y==1, 1], c='orange', label='Generated Data', alpha=0.6)
+    plt.xlabel('PCA-1')
+    plt.ylabel('PCA-2')
+    plt.title('PCA Projection of Real vs Generated Data')
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
+
+
+def tsne_plot(real_data, fake_data):
+    # 使用 t-SNE 降维到二维
+    X = np.vstack([real_data, fake_data])
+    y = np.array([0]*len(real_data) + [1]*len(fake_data))  # 0: 真实数据, 1: 生成数据
+
+    # 先PCA降到50维，再用TSNE
+    X_pca = PCA(n_components=50).fit_transform(X)
+    os.environ["OMP_NUM_THREADS"] = "1"
+    X_tsne = TSNE(n_components=2, perplexity=30, random_state=42).fit_transform(X_pca)
+
+    # 可视化
+    plt.figure(figsize=(8,6))
+    plt.scatter(X_tsne[y==0, 0], X_tsne[y==0, 1], c='blue', label='Real Data', alpha=0.6)
+    plt.scatter(X_tsne[y==1, 0], X_tsne[y==1, 1], c='orange', label='Generated Data', alpha=0.6)
+    plt.xlabel('t-SNE-1')
+    plt.ylabel('t-SNE-2')
+    plt.title('t-SNE Visualization of Real vs Generated Data')
+    plt.legend()
+    plt.grid(True)
+    plt.tight_layout()
+    plt.show()
 
 if __name__ == "__main__":
     # print("hello world")
     # Plot the bar comparison for max and min RMS error samples
-    plot_pg_bar_comparison(real_Pg_poly[max_rms_idx], pred_Pg_poly[max_rms_idx], max_rms_idx, "Max RMS Error", "D:/Senior/thuthesis-v7.6.0/figures/max_rms_pg_comparison.png")
-    plot_pg_bar_comparison(real_Pg_poly[min_rms_idx], pred_Pg_poly[min_rms_idx], min_rms_idx, "Min RMS Error", "D:/Senior/thuthesis-v7.6.0/figures/min_rms_pg_comparison.png")
+    # plot_pg_bar_comparison(real_Pg_poly[max_rms_idx], pred_Pg_poly[max_rms_idx], max_rms_idx, "Max RMS Error", "D:/Senior/thuthesis-v7.6.0/figures/max_rms_pg_comparison.png")
+    # plot_pg_bar_comparison(real_Pg_poly[min_rms_idx], pred_Pg_poly[min_rms_idx], min_rms_idx, "Min RMS Error", "D:/Senior/thuthesis-v7.6.0/figures/min_rms_pg_comparison.png")
 
-    # Plot the comparison of generated data vs Gurobi results
-    # plot_pg_comparison()
-    plot_lambda_comparison(real_lambda_poly[max_err_idx], pred_lambda_poly[max_err_idx], max_err_idx, "Max Absolute Error", "D:/Senior/thuthesis-v7.6.0/figures/max_rms_lambda_comparison.png")
-    plot_lambda_comparison(real_lambda_poly[min_err_idx], pred_lambda_poly[min_err_idx], min_err_idx, "Min Absolute Error", "D:/Senior/thuthesis-v7.6.0/figures/min_rms_lambda_comparison.png")
+    # # Plot the comparison of generated data vs Gurobi results
+    # # plot_pg_comparison()
+    # plot_lambda_comparison(real_lambda_poly[max_err_idx], pred_lambda_poly[max_err_idx], max_err_idx, "Max Absolute Error", "D:/Senior/thuthesis-v7.6.0/figures/max_rms_lambda_comparison.png")
+    # plot_lambda_comparison(real_lambda_poly[min_err_idx], pred_lambda_poly[min_err_idx], min_err_idx, "Min Absolute Error", "D:/Senior/thuthesis-v7.6.0/figures/min_rms_lambda_comparison.png")
+    data_tensor = torch.load("train_data/dataset_poly.pt")
+    data_tensor[:,172:] /= 10000
+    real_data = data_tensor.numpy()
+    fake_data = np.load("generated_data_new1.npy")
+
+    pca_plot(real_data, fake_data)
+    # tsne_plot(real_data, fake_data)
