@@ -45,43 +45,47 @@ from case118dcopf import *
 # print(Cg)
 # print(Cg[0,1])
 
-data = np.load('/home/lijianxiang/GraduationProject/generated_data.npy')
-print(data.shape)
-data0 = data[0]
-pd0 = data0[0:118]
-# print(pd0)
-pg0 = data0[118:172]
-# print(pg0)
-multiplier0 = data0[172:]
-powerbalance0 = multiplier0[0]
-mulinemax0 = multiplier0[1:187]
-mulinemin0 = multiplier0[187:373]
-mugmin0 = multiplier0[373:427]
-mugmax0 = multiplier0[427:]
-# print("powerbalance0", powerbalance0)
+# data = np.load('/home/lijianxiang/GraduationProject/generated_data.npy')
+# print(data.shape)
+# data0 = data[0]
+# pd0 = data0[0:118]
+# # print(pd0)
+# pg0 = data0[118:172]
+# # print(pg0)
+# multiplier0 = data0[172:]
+# powerbalance0 = multiplier0[0]
+# mulinemax0 = multiplier0[1:187]
+# mulinemin0 = multiplier0[187:373]
+# mugmin0 = multiplier0[373:427]
+# mugmax0 = multiplier0[427:]
+# # print("powerbalance0", powerbalance0)
 
 
 
 
-ppc = init_ppc()
-ppc['bus'][:, 2] = pd0
-results = solve_dcopf(ppc,type='poly')
-lambda0 = results['lambda_power_balance']
-pg = results['Pg_opt']
-mu_linemax = results['lambda_line_max']
-mu_linemin = results['lambda_line_min']
-mugmin = results['lambda_pg_min']
-mugmax = results['lambda_pg_max']
+# ppc = init_ppc()
+# ppc['bus'][:, 2] = pd0
+# results = solve_dcopf(ppc,type='poly')
+# lambda0 = results['lambda_power_balance']
+# pg = results['Pg_opt']
+# mu_linemax = results['lambda_line_max']
+# mu_linemin = results['lambda_line_min']
+# mugmin = results['lambda_pg_min']
+# mugmax = results['lambda_pg_max']
 
-# print(lambda0)
-# print(powerbalance0)
-# print("mulinemax0", mulinemax0)
-# print("mu_linemax", mu_linemax)
+# # print(lambda0)
+# # print(powerbalance0)
+# # print("mulinemax0", mulinemax0)
+# # print("mu_linemax", mu_linemax)
 
-# print(pg-pg0)
-# print(mu_linemax-mulinemax0)
+# # print(pg-pg0)
+# # print(mu_linemax-mulinemax0)
 
-print("mugmin0", mugmin0)
-print("mugmin", mugmin)
-print("mugmax0", mugmax0)
-print("mugmax", mugmax)
+# print("mugmin0", mugmin0)
+# print("mugmin", mugmin)
+# print("mugmax0", mugmax0)
+# print("mugmax", mugmax)
+
+result = torch.load('/home/lijianxiang/GraduationProject/train_data/poly_result_aug.pt')
+print(result.shape)
+print(result[1:20, 54])
